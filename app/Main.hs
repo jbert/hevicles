@@ -5,16 +5,25 @@ import Control.Monad
 import qualified Data.Text as T
 import Foreign.C.Types
 import GHC.Word
+import Linear.Affine
 import Linear.V2
 import qualified SDL
 
-class Field a where
-    fieldAt :: a -> Pt -> Double
+-- class Field a where
+-- fieldAt :: a -> Pt -> Double
 
 --    fieldAt src p =
 --        let d =
 
+-- strength runs from 0.0 -> 1.0
 data StaticSource = StaticSource {ssPos :: Pt, ssStrength :: Double}
+
+fieldAt :: StaticSource -> Pt -> Double
+fieldAt src pt =
+    let
+        dist = (distanceA (ssPos src) pt) / 1000.0
+    in
+        if dist == 0 then 0 else 1.0 / (dist * dist)
 
 -- type Fields = StaticSource
 
@@ -42,13 +51,13 @@ sdlMain = do
 
     let conf = Config{w = 1024, h = 768, appName = T.pack "Hevicle"}
     let sSize = screenSize conf
-    let origin = V2 0.0 0.0
 
     let scene =
             Scene
                 { fields =
-                    [StaticSource{ssPos = fmap (/ 2.0) sSize, ssStrength = 100.0}]
-                , hevicles = [Hevicle{pos = origin, theta = 135}]
+                    -- [StaticSource{ssPos = (0.5 .+^ sSize), ssStrength = 1.0}]
+                    [StaticSource{ssPos = fmap (/ 2.0) sSize, ssStrength = 1.0}]
+                , hevicles = [Hevicle{pos = V2 0 0, theta = 135}]
                 }
 
     window <-
@@ -67,11 +76,40 @@ drawLine renderer colour fr to = do
     SDL.rendererDrawColor renderer SDL.$= colour
     SDL.drawLine renderer (toSDLPt fr) (toSDLPt to)
 
+drawPoint :: SDL.Renderer -> Colour -> Pt -> IO ()
+drawPoint renderer colour pt = do
+    SDL.rendererDrawColor renderer SDL.$= colour
+    SDL.drawPoint renderer (toSDLPt pt)
+
+drawAll :: Config -> SDL.Renderer -> (Pt -> Colour) -> IO ()
+drawAll c r ptColour = do
+    let pts = [(x, y) | x <- [0 .. width - 1], y <- [0 .. height - 1]]
+    mapM_ drawIntPoint' pts
+  where
+    width = w c
+    height = h c
+    drawIntPoint' (x, y) = do
+        let colour = ptColour $ V2 (fromIntegral x) (fromIntegral y)
+        SDL.rendererDrawColor r SDL.$= colour
+        SDL.drawPoint r $ SDL.P $ SDL.V2 (fromIntegral x) (fromIntegral y)
+
+scaleColour :: Colour -> Double -> Colour
+scaleColour base s =
+    fmap (\x -> round $ (*) s $ fromIntegral x) base
+
 drawStaticSource :: Config -> SDL.Renderer -> Colour -> StaticSource -> IO ()
-drawStaticSource _ renderer colour src = do
+drawStaticSource c r baseCol src = do
+    drawAll c r ptCol
+  where
+    ptCol pt =
+        let s = fieldAt src pt
+        in scaleColour baseCol s
+
+{-
     let fr = ssPos src
     let to = fr + V2 0.0 30.0
     drawLine renderer colour fr to
+    -}
 
 drawFields :: Config -> SDL.Renderer -> Scene -> Colour -> IO ()
 drawFields conf renderer scene colour = do
