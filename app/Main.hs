@@ -35,8 +35,10 @@ type Pt = V2 Double
 type Vec = V2 Double
 type Colour = SDL.V4 Word8
 
-screenSize :: Config -> Pt
-screenSize conf = V2 (fromIntegral $ w conf) (fromIntegral $ h conf)
+data DrawCtx = DrawCtx Config SDL.Renderer
+
+screenSize :: DrawCtx -> Pt
+screenSize (DrawCtx conf _) = V2 (fromIntegral $ w conf) (fromIntegral $ h conf)
 
 main :: IO ()
 main = do
@@ -50,7 +52,14 @@ sdlMain = do
     SDL.initializeAll
 
     let conf = Config{w = 1024, h = 768, appName = T.pack "Hevicle"}
-    let sSize = screenSize conf
+    window <-
+        SDL.createWindow
+            (appName conf)
+            SDL.defaultWindow{SDL.windowInitialSize = SDL.V2 (fromIntegral $ w conf) (fromIntegral $ h conf)}
+    renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
+
+    let dc = DrawCtx conf renderer
+    let sSize = screenSize dc
 
     let scene =
             Scene
@@ -60,79 +69,48 @@ sdlMain = do
                 , hevicles = [Hevicle{pos = V2 0 0, theta = 135}]
                 }
 
-    window <-
-        SDL.createWindow
-            (appName conf)
-            SDL.defaultWindow{SDL.windowInitialSize = SDL.V2 (fromIntegral $ w conf) (fromIntegral $ h conf)}
-    renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
-    sdlLoop conf scene renderer 0
+    sdlLoop dc scene 0
     SDL.destroyWindow window
 
 toSDLPt :: Pt -> SDL.Point SDL.V2 CInt
 toSDLPt (V2 x y) = SDL.P $ SDL.V2 (round x) (round y)
 
-drawLine :: SDL.Renderer -> Colour -> Pt -> Pt -> IO ()
-drawLine renderer colour fr to = do
-    SDL.rendererDrawColor renderer SDL.$= colour
-    SDL.drawLine renderer (toSDLPt fr) (toSDLPt to)
+drawLine :: DrawCtx -> Colour -> Pt -> Pt -> IO ()
+drawLine (DrawCtx _ r) colour fr to = do
+    SDL.rendererDrawColor r SDL.$= colour
+    SDL.drawLine r (toSDLPt fr) (toSDLPt to)
 
-drawPoint :: SDL.Renderer -> Colour -> Pt -> IO ()
-drawPoint renderer colour pt = do
-    SDL.rendererDrawColor renderer SDL.$= colour
-    SDL.drawPoint renderer (toSDLPt pt)
+-- drawCircle :: DrawCtx -> Colour -> Pt -> Double
+-- drawCircle
 
-drawAll :: Config -> SDL.Renderer -> (Pt -> Colour) -> IO ()
-drawAll c r ptColour = do
-    let pts = [(x, y) | x <- [0 .. width - 1], y <- [0 .. height - 1]]
-    mapM_ drawIntPoint' pts
-  where
-    width = w c
-    height = h c
-    drawIntPoint' (x, y) = do
-        let colour = ptColour $ V2 (fromIntegral x) (fromIntegral y)
-        SDL.rendererDrawColor r SDL.$= colour
-        SDL.drawPoint r $ SDL.P $ SDL.V2 (fromIntegral x) (fromIntegral y)
-
-scaleColour :: Colour -> Double -> Colour
-scaleColour base s =
-    fmap (\x -> round $ (*) s $ fromIntegral x) base
-
-drawStaticSource :: Config -> SDL.Renderer -> Colour -> StaticSource -> IO ()
-drawStaticSource c r baseCol src = do
-    drawAll c r ptCol
-  where
-    ptCol pt =
-        let s = fieldAt src pt
-        in scaleColour baseCol s
-
-{-
+drawStaticSource :: DrawCtx -> Colour -> StaticSource -> IO ()
+drawStaticSource dc baseCol src = do
     let fr = ssPos src
     let to = fr + V2 0.0 30.0
-    drawLine renderer colour fr to
-    -}
+    drawLine dc baseCol fr to
 
-drawFields :: Config -> SDL.Renderer -> Scene -> Colour -> IO ()
-drawFields conf renderer scene colour = do
-    mapM_ (drawStaticSource conf renderer colour) (fields scene)
+drawFields :: DrawCtx -> Scene -> Colour -> IO ()
+drawFields dc scene colour = do
+    mapM_ (drawStaticSource dc colour) (fields scene)
 
-drawScene :: Config -> Scene -> SDL.Renderer -> Integer -> IO ()
-drawScene conf scene renderer tick = do
+drawScene :: DrawCtx -> Scene -> Integer -> IO ()
+drawScene dc@(DrawCtx conf r) scene tick = do
     let bgCol = SDL.V4 0 0 0 255
     let srcCol = SDL.V4 0 0 255 255
     let fgCol = SDL.V4 0 255 0 255
-    SDL.rendererDrawColor renderer SDL.$= bgCol
-    SDL.clear renderer
-    drawFields conf renderer scene srcCol
+    SDL.rendererDrawColor r SDL.$= bgCol
+    SDL.clear r
+    drawFields dc scene srcCol
 
     let x1 = tick `mod` (w conf)
     let fr = V2 (fromIntegral x1) 0
     let to = V2 (fromIntegral $ w conf) (fromIntegral $ h conf)
 
-    drawLine renderer fgCol fr to
-    SDL.present renderer
+    drawLine dc fgCol fr to
+    SDL.present r
 
-sdlLoop :: Config -> Scene -> SDL.Renderer -> Integer -> IO ()
-sdlLoop conf scene renderer tick = do
+sdlLoop :: DrawCtx -> Scene -> Integer -> IO ()
+sdlLoop dc scene tick = do
     events <- SDL.pollEvents
     let eventIsQPress event =
             case SDL.eventPayload event of
@@ -142,6 +120,6 @@ sdlLoop conf scene renderer tick = do
                 _ -> False
         qPressed = any eventIsQPress events
 
-    drawScene conf scene renderer tick
+    drawScene dc scene tick
     threadDelay (10 * 1000)
-    unless qPressed (sdlLoop conf scene renderer (tick + 1))
+    unless qPressed (sdlLoop dc scene (tick + 1))
