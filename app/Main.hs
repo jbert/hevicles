@@ -62,7 +62,10 @@ sdlMain = do
                 { fields =
                     -- [StaticSource{ssCentre = fmap (/ 2.0) sSize, ssStrength = 1.0}]
                     [StaticSource (0.5 * sSize) 1.0 20.0 20.0]
-                , hevicles = [Hevicle{hvCentre = V2 30 30, hvTheta = -45, hvWidth = 20.0, hvHeight = 40.0}]
+                , hevicles =
+                    [ Hevicle{hvCentre = V2 30 30, hvTheta = -45, hvWidth = 20.0, hvHeight = 40.0}
+                    , Hevicle{hvCentre = sSize - V2 40 40, hvTheta = 90, hvWidth = 20.0, hvHeight = 40.0}
+                    ]
                 }
 
     sdlLoop dc scene 0
@@ -98,7 +101,11 @@ drawHevicles dc hvs col = do
 
 updateHevicle :: Hevicle -> Hevicle
 updateHevicle hv =
-    hv{hvCentre = (hvCentre hv) + V2 1.0 1.0}
+    let
+        f = forward hv
+        speed = 1.0
+    in
+        hv{hvCentre = (hvCentre hv) + speed * f}
 
 updateScene :: Scene -> Scene
 updateScene scene =

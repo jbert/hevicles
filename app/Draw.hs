@@ -68,6 +68,9 @@ class Drawable a where
 
     localLines :: a -> [[Pt]]
 
+    forward :: a -> Pt
+    forward dw = ptRotate (theta dw) (V2 0 1)
+
     -- Translate to world coords from local coords
     -- [-1,-1] -> [1,1] => [-w/2,-h/2] -> [+w/2,+h/2] (scale)
     -- rotate
@@ -77,12 +80,7 @@ class Drawable a where
         let
             x_sc = x * width dw / 2
             y_sc = y * height dw / 2
-            rt = (theta dw) * pi / 180
-
-            x_rot = x_sc * cos rt - y_sc * sin rt
-            y_rot = x_sc * sin rt + y_sc * cos rt
-
-            p_rot = V2 x_rot y_rot
+            p_rot = ptRotate (theta dw) (V2 x_sc y_sc)
         in
             -- traceShow ((x, y), (x_sc, y_sc), (x_rot, y_rot), p_rot)
             (p_rot + centre dw)
@@ -127,3 +125,11 @@ drawShouldExit _ = do
 drawPresent :: DrawCtx -> IO ()
 drawPresent (DrawCtx _ r _) = do
     SDL.present r
+
+ptRotate :: Double -> Pt -> Pt
+ptRotate degrees (V2 x y) =
+    let rads = degrees * pi / 180
+
+        x_rot = x * cos rads - y * sin rads
+        y_rot = x * sin rads + y * cos rads
+    in V2 x_rot y_rot
