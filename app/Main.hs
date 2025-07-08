@@ -20,7 +20,7 @@ instance Drawable StaticSource where
     theta _ = 0
     width = ssWidth
     height = ssHeight
-    draw = drawStaticSource
+    localLines = staticSourceLines
 
 fieldAt :: StaticSource -> Pt -> Double
 fieldAt src pt =
@@ -60,29 +60,24 @@ sdlMain = do
     let scene =
             Scene
                 { fields =
-                    -- [StaticSource{ssCentre = (0.5 .+^ sSize), ssStrength = 1.0}]
-                    [StaticSource{ssCentre = fmap (/ 2.0) sSize, ssStrength = 1.0}]
+                    -- [StaticSource{ssCentre = fmap (/ 2.0) sSize, ssStrength = 1.0}]
+                    [StaticSource (0.5 * sSize) 1.0 20.0 20.0]
                 , hevicles = [Hevicle{hvCentre = V2 30 30, hvTheta = -45, hvWidth = 20.0, hvHeight = 40.0}]
                 }
 
     sdlLoop dc scene 0
     dcDone dc
 
-drawCircle :: DrawCtx -> Colour -> Pt -> Double -> IO ()
-drawCircle dc col pt radius = do
-    let steps = 20
-    let thetas = map (* (2 * pi / steps)) [0 .. steps]
-    let offsets = map (\t -> (radius * cos t, radius * sin t)) thetas
-    let pts = map (\(dx, dy) -> pt + V2 dx dy) offsets
-    mapM_ (\(fr, to) -> drawLine dc col fr to) $ zip pts (drop 1 pts)
+circleLines :: Double -> Double -> [Pt]
+circleLines steps radius =
+    let
+        thetas = map (* (2 * pi / steps)) [0 .. steps]
+    in
+        map (\t -> V2 (radius * cos t) (radius * sin t)) thetas
 
-drawStaticSource :: DrawCtx -> Colour -> StaticSource -> IO ()
-drawStaticSource dc col src = do
-    -- let fr = ssCentre src
-    -- let to = fr + V2 0.0 30.0
-    -- drawLine dc baseCol fr to
-    let centre = ssCentre src
-    drawCircle dc col centre 20
+staticSourceLines :: StaticSource -> [[Pt]]
+staticSourceLines _ =
+    [circleLines 20.0 1.0]
 
 hevicleLines :: Hevicle -> [[Pt]]
 hevicleLines _ =
@@ -95,7 +90,7 @@ hevicleLines _ =
 
 drawFields :: DrawCtx -> [StaticSource] -> Colour -> IO ()
 drawFields dc srcs colour = do
-    mapM_ (drawStaticSource dc colour) srcs
+    mapM_ (draw dc colour) srcs
 
 drawHevicles :: DrawCtx -> [Hevicle] -> Colour -> IO ()
 drawHevicles dc hvs col = do
