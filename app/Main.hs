@@ -9,12 +9,6 @@ import Linear.Affine
 import Linear.V2
 import qualified SDL
 
--- class Field a where
--- fieldAt :: a -> Pt -> Double
-
---    fieldAt src p =
---        let d =
-
 -- strength runs from 0.0 -> 1.0
 data StaticSource = StaticSource {ssPos :: Pt, ssStrength :: Double}
 
@@ -24,8 +18,6 @@ fieldAt src pt =
         dist = (distanceA (ssPos src) pt) / 1000.0
     in
         if dist == 0 then 0 else 1.0 / (dist * dist)
-
--- type Fields = StaticSource
 
 data Hevicle = Hevicle {pos :: Pt, theta :: Double}
 
@@ -89,31 +81,47 @@ drawCircle dc col pt radius = do
     mapM_ (\(fr, to) -> drawLine dc col fr to) $ zip pts (drop 1 pts)
 
 drawStaticSource :: DrawCtx -> Colour -> StaticSource -> IO ()
-drawStaticSource dc baseCol src = do
+drawStaticSource dc col src = do
     -- let fr = ssPos src
     -- let to = fr + V2 0.0 30.0
     -- drawLine dc baseCol fr to
     let centre = ssPos src
-    drawCircle dc baseCol centre 20
+    drawCircle dc col centre 20
 
-drawFields :: DrawCtx -> Scene -> Colour -> IO ()
-drawFields dc scene colour = do
-    mapM_ (drawStaticSource dc colour) (fields scene)
+drawHevicle :: DrawCtx -> Colour -> Hevicle -> IO ()
+drawHevicle dc baseCol hv = do
+    let fr = pos hv
+    let l = 20
+    let rt = (theta hv * pi * 180)
+    let to = fr + l .+^ (V2 (cos rt) (sin rt))
+    drawLine dc baseCol fr to
+
+drawFields :: DrawCtx -> [StaticSource] -> Colour -> IO ()
+drawFields dc srcs colour = do
+    mapM_ (drawStaticSource dc colour) srcs
+
+drawHevicles :: DrawCtx -> [Hevicle] -> Colour -> IO ()
+drawHevicles dc hvs col = do
+    mapM_ (drawHevicle dc col) hvs
 
 drawScene :: DrawCtx -> Scene -> Integer -> IO ()
-drawScene dc@(DrawCtx conf r) scene tick = do
+drawScene dc@(DrawCtx _ r) scene _ = do
     let bgCol = SDL.V4 0 0 0 255
     let srcCol = SDL.V4 0 0 255 255
-    let fgCol = SDL.V4 0 255 0 255
+    let hvCol = SDL.V4 0 255 0 255
     SDL.rendererDrawColor r SDL.$= bgCol
     SDL.clear r
-    drawFields dc scene srcCol
+    drawFields dc (fields scene) srcCol
 
+    {-
+    let fgCol = SDL.V4 0 255 0 255
     let x1 = tick `mod` (w conf)
     let fr = V2 (fromIntegral x1) 0
     let to = V2 (fromIntegral $ w conf) (fromIntegral $ h conf)
-
     drawLine dc fgCol fr to
+    -}
+
+    drawHevicles dc (hevicles scene) hvCol
     SDL.present r
 
 sdlLoop :: DrawCtx -> Scene -> Integer -> IO ()
