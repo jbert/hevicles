@@ -80,14 +80,21 @@ drawLine (DrawCtx _ r) colour fr to = do
     SDL.rendererDrawColor r SDL.$= colour
     SDL.drawLine r (toSDLPt fr) (toSDLPt to)
 
--- drawCircle :: DrawCtx -> Colour -> Pt -> Double
--- drawCircle
+drawCircle :: DrawCtx -> Colour -> Pt -> Double -> IO ()
+drawCircle dc col pt radius = do
+    let steps = 20
+    let thetas = map (* (2 * pi / steps)) [0 .. steps]
+    let offsets = map (\t -> (radius * cos t, radius * sin t)) thetas
+    let pts = map (\(dx, dy) -> pt + V2 dx dy) offsets
+    mapM_ (\(fr, to) -> drawLine dc col fr to) $ zip pts (drop 1 pts)
 
 drawStaticSource :: DrawCtx -> Colour -> StaticSource -> IO ()
 drawStaticSource dc baseCol src = do
-    let fr = ssPos src
-    let to = fr + V2 0.0 30.0
-    drawLine dc baseCol fr to
+    -- let fr = ssPos src
+    -- let to = fr + V2 0.0 30.0
+    -- drawLine dc baseCol fr to
+    let centre = ssPos src
+    drawCircle dc baseCol centre 20
 
 drawFields :: DrawCtx -> Scene -> Colour -> IO ()
 drawFields dc scene colour = do
