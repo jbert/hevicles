@@ -104,6 +104,14 @@ drawHevicles :: DrawCtx -> [Hevicle] -> Colour -> IO ()
 drawHevicles dc hvs col = do
     mapM_ (drawHevicle dc col) hvs
 
+updateHevicle :: Hevicle -> Hevicle
+updateHevicle hv =
+    hv{pos = (pos hv) + V2 1.0 1.0}
+
+updateScene :: Scene -> Scene
+updateScene scene =
+    scene{hevicles = map updateHevicle (hevicles scene)}
+
 drawScene :: DrawCtx -> Scene -> Integer -> IO ()
 drawScene dc@(DrawCtx _ r) scene _ = do
     let bgCol = SDL.V4 0 0 0 255
@@ -135,6 +143,8 @@ sdlLoop dc scene tick = do
                 _ -> False
         qPressed = any eventIsQPress events
 
+    -- Pass tick to allow animations
     drawScene dc scene tick
+    let scene' = updateScene scene
     threadDelay (10 * 1000)
-    unless qPressed (sdlLoop dc scene (tick + 1))
+    unless qPressed (sdlLoop dc scene' (tick + 1))
