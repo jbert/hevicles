@@ -97,6 +97,24 @@ sdlMain = do
                         , hvCentreDriver = Driver (Sensor LocCentre Food)
                         , hvRightDriver = ZeroDriver
                         }
+                    , Hevicle
+                        { hvCentre = V2 400 200
+                        , hvTheta = 45
+                        , hvWidth = 20.0
+                        , hvHeight = 40.0
+                        , hvLeftDriver = Driver (Sensor LocLeft Food)
+                        , hvCentreDriver = ZeroDriver
+                        , hvRightDriver = Driver (Sensor LocRight Food)
+                        }
+                    , Hevicle
+                        { hvCentre = V2 400 200
+                        , hvTheta = 45
+                        , hvWidth = 20.0
+                        , hvHeight = 40.0
+                        , hvLeftDriver = Driver (Sensor LocRight Food)
+                        , hvCentreDriver = ZeroDriver
+                        , hvRightDriver = Driver (Sensor LocLeft Food)
+                        }
                     ]
                 }
 
