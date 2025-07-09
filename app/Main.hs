@@ -7,7 +7,7 @@ import Linear.Affine
 import Linear.V2
 
 -- strength runs from 0.0 -> 1.0
-data StaticSource = StaticSource
+data Field = StaticSource
     { ssCentre :: D.Pt
     , ssStrength :: Double
     , ssWidth :: Double
@@ -15,14 +15,14 @@ data StaticSource = StaticSource
     }
     deriving (Show)
 
-instance D.Drawable StaticSource where
+instance D.Drawable Field where
     centre = ssCentre
     theta _ = 0
     width = ssWidth
     height = ssHeight
     localLines = staticSourceLines
 
-fieldAt :: StaticSource -> D.Pt -> Double
+fieldAt :: Field -> D.Pt -> Double
 fieldAt (StaticSource centre strength _ _) pt =
     let
         dist = (distanceA centre pt)
@@ -45,7 +45,7 @@ instance D.Drawable Hevicle where
     height = hvHeight
     localLines = hevicleLines
 
-data Scene = Scene {fields :: [StaticSource], hevicles :: [Hevicle]}
+data Scene = Scene {fields :: [Field], hevicles :: [Hevicle]}
 
 main :: IO ()
 main = do
@@ -79,7 +79,7 @@ circleLines steps radius =
     in
         map (\t -> V2 (radius * cos t) (radius * sin t)) thetas
 
-staticSourceLines :: StaticSource -> [[D.Pt]]
+staticSourceLines :: Field -> [[D.Pt]]
 staticSourceLines _ =
     [circleLines 20.0 1.0]
 
@@ -92,7 +92,7 @@ hevicleLines _ =
         , [(0, -1), (0, 1)]
         ]
 
-drawFields :: D.Ctx -> [StaticSource] -> D.Colour -> IO ()
+drawFields :: D.Ctx -> [Field] -> D.Colour -> IO ()
 drawFields dc srcs colour = do
     mapM_ (D.draw dc colour) srcs
 
