@@ -16,7 +16,7 @@ ptFromTuple (x, y) = V2 x y
 
 data Config = Config {w :: Integer, h :: Integer, appName :: String}
 
-data DrawCtx = DrawCtx Config SDL.Renderer SDL.Window
+data Ctx = Ctx Config SDL.Renderer SDL.Window
 
 type Colour = SDL.V4 Word8
 
@@ -35,8 +35,8 @@ green = SDL.V4 0 255 0 255
 blue :: Colour
 blue = SDL.V4 0 0 255 255
 
-dcInit :: Config -> IO DrawCtx
-dcInit conf = do
+init :: Config -> IO Ctx
+init conf = do
     SDL.initializeAll
     window <-
         SDL.createWindow
@@ -44,14 +44,14 @@ dcInit conf = do
             SDL.defaultWindow{SDL.windowInitialSize = SDL.V2 (fromIntegral $ w conf) (fromIntegral $ h conf)}
     renderer <- SDL.createRenderer window (-1) SDL.defaultRenderer
 
-    return $ DrawCtx conf renderer window
+    return $ Ctx conf renderer window
 
-dcDone :: DrawCtx -> IO ()
-dcDone (DrawCtx _ _ window) =
+done :: Ctx -> IO ()
+done (Ctx _ _ window) =
     SDL.destroyWindow window
 
-screenSize :: DrawCtx -> Pt
-screenSize (DrawCtx conf _ _) = V2 (fromIntegral $ w conf) (fromIntegral $ h conf)
+screenSize :: Ctx -> Pt
+screenSize (Ctx conf _ _) = V2 (fromIntegral $ w conf) (fromIntegral $ h conf)
 
 -- A drawable gets a local coord space from [-1,-1] to [+1,+1]
 --
@@ -86,8 +86,8 @@ class Drawable a where
             (p_rot + centre dw)
 
     -- Call localLines and toW to draw on the context in the colour provided
-    draw :: DrawCtx -> Colour -> a -> IO ()
-    draw dc@(DrawCtx _ renderer _) col dw = do
+    draw :: Ctx -> Colour -> a -> IO ()
+    draw dc@(Ctx _ renderer _) col dw = do
         mapM_ drawOneLine $ localLines dw
       where
         drawOneLine line = do
@@ -96,22 +96,24 @@ class Drawable a where
             SDL.rendererDrawColor renderer SDL.$= col
             SDL.drawLines renderer $ SV.fromList sdlPts
 
--- Could have separate scales for world and SDL in DrawCtx
-toSDL :: DrawCtx -> Pt -> SDL.Point SDL.V2 CInt
+-- Could have separate scales for world and SDL in Ctx
+toSDL :: Ctx -> Pt -> SDL.Point SDL.V2 CInt
 toSDL _ (V2 x y) = SDL.P $ SDL.V2 (round x) (round y)
 
-drawLine :: DrawCtx -> Colour -> Pt -> Pt -> IO ()
-drawLine dc@(DrawCtx _ r _) colour fr to = do
+{-
+drawLine :: Ctx -> Colour -> Pt -> Pt -> IO ()
+drawLine dc@(Ctx _ r _) colour fr to = do
     SDL.rendererDrawColor r SDL.$= colour
     SDL.drawLine r (toSDL dc fr) (toSDL dc to)
+    -}
 
-drawClearScreen :: DrawCtx -> Colour -> IO ()
-drawClearScreen (DrawCtx _ r _) col = do
+clearScreen :: Ctx -> Colour -> IO ()
+clearScreen (Ctx _ r _) col = do
     SDL.rendererDrawColor r SDL.$= col
     SDL.clear r
 
-drawShouldExit :: DrawCtx -> IO Bool
-drawShouldExit _ = do
+shouldExit :: Ctx -> IO Bool
+shouldExit _ = do
     events <- SDL.pollEvents
     let eventIsQPress event =
             case SDL.eventPayload event of
@@ -122,8 +124,8 @@ drawShouldExit _ = do
         qPressed = any eventIsQPress events
     return $ qPressed
 
-drawPresent :: DrawCtx -> IO ()
-drawPresent (DrawCtx _ r _) = do
+present :: Ctx -> IO ()
+present (Ctx _ r _) = do
     SDL.present r
 
 ptRotate :: Double -> Pt -> Pt

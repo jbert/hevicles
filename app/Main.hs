@@ -2,42 +2,43 @@ module Main where
 
 import Control.Concurrent
 import Control.Monad
-import Draw
+import qualified Draw as D
 import Linear.Affine
 import Linear.V2
 
 -- strength runs from 0.0 -> 1.0
 data StaticSource = StaticSource
-    { ssCentre :: Pt
+    { ssCentre :: D.Pt
     , ssStrength :: Double
     , ssWidth :: Double
     , ssHeight :: Double
     }
     deriving (Show)
 
-instance Drawable StaticSource where
+instance D.Drawable StaticSource where
     centre = ssCentre
     theta _ = 0
     width = ssWidth
     height = ssHeight
     localLines = staticSourceLines
 
-fieldAt :: StaticSource -> Pt -> Double
-fieldAt src pt =
+fieldAt :: StaticSource -> D.Pt -> Double
+fieldAt (StaticSource centre strength _ _) pt =
     let
-        dist = (distanceA (ssCentre src) pt) / 1000.0
+        dist = (distanceA centre pt)
+        scale = 1000.0 * strength
     in
-        if dist == 0 then 0 else 1.0 / (dist * dist)
+        if dist == 0 then 0 else scale / dist
 
 data Hevicle = Hevicle
-    { hvCentre :: Pt
+    { hvCentre :: D.Pt
     , hvTheta :: Double
     , hvWidth :: Double
     , hvHeight :: Double
     }
     deriving (Show)
 
-instance Drawable Hevicle where
+instance D.Drawable Hevicle where
     centre = hvCentre
     theta = hvTheta
     width = hvWidth
@@ -53,9 +54,9 @@ main = do
 
 sdlMain :: IO ()
 sdlMain = do
-    dc <- dcInit Config{w = 1024, h = 768, appName = "Hevicle"}
+    dc <- D.init D.Config{D.w = 1024, D.h = 768, D.appName = "Hevicle"}
 
-    let sSize = screenSize dc
+    let sSize = D.screenSize dc
 
     let scene =
             Scene
@@ -69,40 +70,40 @@ sdlMain = do
                 }
 
     sdlLoop dc scene 0
-    dcDone dc
+    D.done dc
 
-circleLines :: Double -> Double -> [Pt]
+circleLines :: Double -> Double -> [D.Pt]
 circleLines steps radius =
     let
         thetas = map (* (2 * pi / steps)) [0 .. steps]
     in
         map (\t -> V2 (radius * cos t) (radius * sin t)) thetas
 
-staticSourceLines :: StaticSource -> [[Pt]]
+staticSourceLines :: StaticSource -> [[D.Pt]]
 staticSourceLines _ =
     [circleLines 20.0 1.0]
 
-hevicleLines :: Hevicle -> [[Pt]]
+hevicleLines :: Hevicle -> [[D.Pt]]
 hevicleLines _ =
     map
-        (map ptFromTuple)
+        (map D.ptFromTuple)
         [ [(-1, -1), (1, -1), (1, 1), (-1, 1), (-1, -1)]
         , [(-0.2, 0.8), (0, 1), (0.2, 0.8)]
         , [(0, -1), (0, 1)]
         ]
 
-drawFields :: DrawCtx -> [StaticSource] -> Colour -> IO ()
+drawFields :: D.Ctx -> [StaticSource] -> D.Colour -> IO ()
 drawFields dc srcs colour = do
-    mapM_ (draw dc colour) srcs
+    mapM_ (D.draw dc colour) srcs
 
-drawHevicles :: DrawCtx -> [Hevicle] -> Colour -> IO ()
+drawHevicles :: D.Ctx -> [Hevicle] -> D.Colour -> IO ()
 drawHevicles dc hvs col = do
-    mapM_ (draw dc col) hvs
+    mapM_ (D.draw dc col) hvs
 
 updateHevicle :: Hevicle -> Hevicle
 updateHevicle hv =
     let
-        f = forward hv
+        f = D.forward hv
         speed = 1.0
     in
         hv{hvCentre = (hvCentre hv) + speed * f}
@@ -111,10 +112,10 @@ updateScene :: Scene -> Scene
 updateScene scene =
     scene{hevicles = map updateHevicle (hevicles scene)}
 
-drawScene :: DrawCtx -> Scene -> Integer -> IO ()
+drawScene :: D.Ctx -> Scene -> Integer -> IO ()
 drawScene dc scene _ = do
-    drawClearScreen dc black
-    drawFields dc (fields scene) red
+    D.clearScreen dc D.black
+    drawFields dc (fields scene) D.red
 
     {-
     let fgCol = SDL.V4 0 255 0 255
@@ -124,12 +125,12 @@ drawScene dc scene _ = do
     drawLine dc fgCol fr to
     -}
 
-    drawHevicles dc (hevicles scene) green
-    drawPresent dc
+    drawHevicles dc (hevicles scene) D.green
+    D.present dc
 
-sdlLoop :: DrawCtx -> Scene -> Integer -> IO ()
+sdlLoop :: D.Ctx -> Scene -> Integer -> IO ()
 sdlLoop dc scene tick = do
-    shouldExit <- drawShouldExit dc
+    shouldExit <- D.shouldExit dc
     -- Pass tick to allow animations
     drawScene dc scene tick
     let scene' = updateScene scene
