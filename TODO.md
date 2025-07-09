@@ -12,6 +12,17 @@
   - length, corners etc
   - and/or do we want coord transformations?
 
+- different colours for resources
+  - use for sources and sensors
+
+- add sensor/driver
+
+- calculate speed from drivers
+  - forward speed is mean?
+
+- calculate rotation from drivers
+  - turn proportional to diff between L and R speed?
+
 - fix theta interpretation
 
 - vehicle type 1:

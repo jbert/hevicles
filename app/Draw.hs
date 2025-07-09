@@ -135,3 +135,6 @@ ptRotate degrees (V2 x y) =
         x_rot = x * cos rads - y * sin rads
         y_rot = x * sin rads + y * cos rads
     in V2 x_rot y_rot
+
+ptScale :: Double -> Pt -> Pt
+ptScale s = fmap (* s)

@@ -6,12 +6,15 @@ import qualified Draw as D
 import Linear.Affine
 import Linear.V2
 
+data Resource = Light | Food deriving (Show, Eq)
+
 -- strength runs from 0.0 -> 1.0
 data Field = StaticSource
     { ssCentre :: D.Pt
     , ssStrength :: Double
     , ssWidth :: Double
     , ssHeight :: Double
+    , ssResource :: Resource
     }
     deriving (Show)
 
@@ -20,21 +23,33 @@ instance D.Drawable Field where
     theta _ = 0
     width = ssWidth
     height = ssHeight
-    localLines = staticSourceLines
+    localLines sc@(StaticSource _ _ _ _ _) = staticSourceLines sc
 
-fieldAt :: Field -> D.Pt -> Double
-fieldAt (StaticSource centre strength _ _) pt =
-    let
-        dist = (distanceA centre pt)
-        scale = 1000.0 * strength
-    in
-        if dist == 0 then 0 else scale / dist
+fieldAt :: Resource -> D.Pt -> Field -> Double
+fieldAt wantedResource pt (StaticSource centre strength _ _ resource)
+    | wantedResource /= resource = 0
+    | otherwise =
+        let
+            dist = (distanceA centre pt)
+            scale = 1000.0 * strength
+        in
+            if dist == 0 then 0 else scale / dist
+
+data Location = LocLeft | LocCentre | LocRight deriving (Show, Eq)
+
+data Source = Sensor {sensorLoc :: Location, sensorResource :: Resource} deriving (Show)
+
+data Driver = Driver {driverSource :: Source} | ZeroDriver
+    deriving (Show)
 
 data Hevicle = Hevicle
     { hvCentre :: D.Pt
     , hvTheta :: Double
     , hvWidth :: Double
     , hvHeight :: Double
+    , hvLeftDriver :: Driver
+    , hvCentreDriver :: Driver
+    , hvRightDriver :: Driver
     }
     deriving (Show)
 
@@ -45,12 +60,10 @@ instance D.Drawable Hevicle where
     height = hvHeight
     localLines = hevicleLines
 
-data Scene = Scene {fields :: [Field], hevicles :: [Hevicle]}
+data Scene = Scene {sceneFields :: [Field], sceneHevicles :: [Hevicle]}
 
 main :: IO ()
-main = do
-    putStrLn "Hello, Haskell!"
-    sdlMain
+main = sdlMain
 
 sdlMain :: IO ()
 sdlMain = do
@@ -60,12 +73,30 @@ sdlMain = do
 
     let scene =
             Scene
-                { fields =
+                { sceneFields =
                     -- [StaticSource{ssCentre = fmap (/ 2.0) sSize, ssStrength = 1.0}]
-                    [StaticSource (0.5 * sSize) 1.0 20.0 20.0]
-                , hevicles =
-                    [ Hevicle{hvCentre = V2 30 30, hvTheta = -45, hvWidth = 20.0, hvHeight = 40.0}
-                    , Hevicle{hvCentre = sSize - V2 40 40, hvTheta = 90, hvWidth = 20.0, hvHeight = 40.0}
+                    [ StaticSource (0.5 * sSize) 1.0 20.0 20.0 Light
+                    , StaticSource (0.75 * sSize) 1.0 20.0 20.0 Food
+                    ]
+                , sceneHevicles =
+                    [ Hevicle
+                        { hvCentre = V2 30 30
+                        , hvTheta = -45
+                        , hvWidth = 20.0
+                        , hvHeight = 40.0
+                        , hvLeftDriver = ZeroDriver
+                        , hvCentreDriver = Driver (Sensor LocCentre Light)
+                        , hvRightDriver = ZeroDriver
+                        }
+                    , Hevicle
+                        { hvCentre = V2 830 200
+                        , hvTheta = 45
+                        , hvWidth = 20.0
+                        , hvHeight = 40.0
+                        , hvLeftDriver = ZeroDriver
+                        , hvCentreDriver = Driver (Sensor LocCentre Food)
+                        , hvRightDriver = ZeroDriver
+                        }
                     ]
                 }
 
@@ -100,22 +131,50 @@ drawHevicles :: D.Ctx -> [Hevicle] -> D.Colour -> IO ()
 drawHevicles dc hvs col = do
     mapM_ (D.draw dc col) hvs
 
-updateHevicle :: Hevicle -> Hevicle
-updateHevicle hv =
+senseFieldAt :: [Field] -> Resource -> D.Pt -> Double
+senseFieldAt fields resource pt =
+    sum $ map (fieldAt resource pt) fields
+
+sensorLocalPt :: Location -> D.Pt
+sensorLocalPt LocLeft = V2 (-1) 1
+sensorLocalPt LocCentre = V2 0 1
+sensorLocalPt LocRight = V2 1 1
+
+driverSpeed :: (D.Pt -> D.Pt) -> [Field] -> Driver -> Double
+driverSpeed locToWorld fields (Driver sensor) =
+    senseFieldAt fields (sensorResource sensor) (locToWorld $ sensorLocalPt loc)
+  where
+    loc = sensorLoc sensor
+driverSpeed _ _ ZeroDriver = 0
+
+updateHevicle :: [Field] -> Hevicle -> Hevicle
+updateHevicle fields hv =
     let
-        f = D.forward hv
-        speed = 1.0
+        leftSpeed = driverSpeed (D.toW hv) fields $ hvLeftDriver hv
+        centreSpeed = driverSpeed (D.toW hv) fields $ hvCentreDriver hv
+        rightSpeed = driverSpeed (D.toW hv) fields $ hvRightDriver hv
+
+        -- For simplicity, we'll take the effective speed as the mean speed of the drivers
+        -- we can assume slippage or something as the reason
+        -- we should do some geometry.
+        speed = (leftSpeed + centreSpeed + rightSpeed) / 3
+
+        -- We'll turn a given angle for each +1 speed difference
+        turnPerSpeedDiff = 360 / 40
+        leftTurnAngle = (rightSpeed - leftSpeed) * turnPerSpeedDiff
+
+        fwd = D.ptRotate leftTurnAngle $ D.forward hv
     in
-        hv{hvCentre = (hvCentre hv) + speed * f}
+        hv{hvCentre = (hvCentre hv) + D.ptScale speed fwd, hvTheta = (hvTheta hv) + leftTurnAngle}
 
 updateScene :: Scene -> Scene
 updateScene scene =
-    scene{hevicles = map updateHevicle (hevicles scene)}
+    scene{sceneHevicles = map (updateHevicle (sceneFields scene)) (sceneHevicles scene)}
 
 drawScene :: D.Ctx -> Scene -> Integer -> IO ()
 drawScene dc scene _ = do
     D.clearScreen dc D.black
-    drawFields dc (fields scene) D.red
+    drawFields dc (sceneFields scene) D.red
 
     {-
     let fgCol = SDL.V4 0 255 0 255
@@ -125,7 +184,7 @@ drawScene dc scene _ = do
     drawLine dc fgCol fr to
     -}
 
-    drawHevicles dc (hevicles scene) D.green
+    drawHevicles dc (sceneHevicles scene) D.green
     D.present dc
 
 sdlLoop :: D.Ctx -> Scene -> Integer -> IO ()
