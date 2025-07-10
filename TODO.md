@@ -15,19 +15,32 @@
 - different colours for resources
   - use for sources and sensors
 
-- add sensor/driver
+- DONE add sensor/driver
 
-- calculate speed from drivers
+- DONE calculate speed from drivers
   - forward speed is mean?
 
-- calculate rotation from drivers
+- DONE calculate rotation from drivers
   - turn proportional to diff between L and R speed?
 
 - fix theta interpretation
 
-- vehicle type 1:
+- DONE vehicle type 1:
   - sensor
   - driver
 
 - add some random shunting (of direction)
 
+- Vehicle 3
+  - add inhibitory
+    - add negator
+    - and new driver type?
+      - or add speed calculator to driver?
+
+- generalise source/sink of signals
+  - allow for thresholding, multiple connections etc
+
+- have 'info tick' as distinct to 'draw+physics tick'
+  - 3 ticks? info == physics?
+
+- collision detection?
